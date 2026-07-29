@@ -1,5 +1,5 @@
 const DB = Object.freeze({
-  VERSION:'2.3.0-REAL-WORLD',
+  VERSION:'2.3.1-REAL-WORLD',
   EMP:'BAZA_PRACOWNIKÓW',
   LOC:'LOKALIZACJE',
   SHIFT:'TYPY_ZMIAN',
@@ -33,6 +33,7 @@ function onOpen(){
 
 function dbInstall(){
   const ss=SpreadsheetApp.getActive();
+  dbPrepareMigration23_(ss);
   const defs={
     [DB.EMP]:EMP_HEADERS,
     [DB.LOC]:['LOKALIZACJA_ID*','NAZWA*','ADRES','AKTYWNA*','KIEROWNIK_EMAIL','KOLOR','STREFA'],
@@ -40,8 +41,7 @@ function dbInstall(){
     [DB.RULES]:['KLUCZ','WARTOŚĆ','OPIS','EDYTOWALNE'],
     [DB.SCENARIOS]:['SCENARIUSZ_ID*','NAZWA*','MNOŻNIK_ZAPOTRZEBOWANIA*','MNOŻNIK_BUDŻETU*','DOMYŚLNY_POZIOM_OBSADY','NADGODZINY','MAX_NADGODZIN_H','REDUKCJA_DOSTĘPNOŚCI_PROC','ZATRUDNIENIE_CZASOWE','AKTYWNY','OPIS'],
     [DB.MODES]:['TRYB_ID*','NAZWA*','WAGA_KOSZT_PROC*','WAGA_PREFERENCJE_PROC*','WAGA_SPRAWIEDLIWOŚĆ_PROC*','WAGA_POKRYCIE_PROC*','WAGA_CIĄGŁOŚĆ_PROC*','AKTYWNY','OPIS'],
-    [DB.LEVELS]:['POZIOM_ID*','NAZWA*','ŹRÓDŁO_CELU*','MNOŻNIK*','LIMIT_BUDŻETU_PROC','AKTYWNY','OPIS'],
-    [DB.SKILLS]:['KOD','NAZWA','OPIS','AKTYWNA']
+    [DB.LEVELS]:['POZIOM_ID*','NAZWA*','ŹRÓDŁO_CELU*','MNOŻNIK*','LIMIT_BUDŻETU_PROC','AKTYWNY','OPIS']
   };
   Object.keys(defs).forEach(name=>{
     let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
@@ -54,6 +54,28 @@ function dbInstall(){
   dbStart_();dbSeedReferences_();dbInstallRealWorldSettings_();dbApplyValidations_();
   PropertiesService.getDocumentProperties().setProperties({DB_VERSION:DB.VERSION,DB_UPDATED:new Date().toISOString()});
   SpreadsheetApp.getActive().toast('Baza GRAFIK PRO jest gotowa.','GRAFIK PRO',5);
+}
+
+function dbPrepareMigration23_(ss){
+  const readIds=name=>{
+    const sh=ss.getSheetByName(name);
+    if(!sh||sh.getLastRow()<2)return [];
+    return sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().flat().filter(Boolean);
+  };
+  const legacyLocations=readIds(DB.LOC).some(x=>['LOC-CENTRUM','LOC-OGRODY'].includes(String(x)));
+  const legacyShifts=readIds(DB.SHIFT).some(x=>['POPOŁUDNIE','EXTRA'].includes(String(x)));
+  if(legacyLocations){
+    const sh=ss.getSheetByName(DB.LOC);
+    sh.getRange(2,1,sh.getLastRow()-1,sh.getLastColumn()).clearContent().clearDataValidations();
+  }
+  if(legacyShifts){
+    const sh=ss.getSheetByName(DB.SHIFT);
+    sh.getRange(2,1,sh.getLastRow()-1,sh.getLastColumn()).clearContent().clearDataValidations();
+  }
+  const obsolete=ss.getSheetByName(DB.SKILLS);
+  if(obsolete)ss.deleteSheet(obsolete);
+  const employees=ss.getSheetByName(DB.EMP);
+  if(employees)employees.getRange(2,1,Math.max(1,employees.getMaxRows()-1),Math.min(EMP_HEADERS.length,employees.getMaxColumns())).clearDataValidations();
 }
 
 function dbStart_(){
@@ -123,12 +145,6 @@ function dbSeedReferences_(){
     ['BUDGET','Budżetowy','OPT',1,100,'TAK','Najlepsza obsada mieszcząca się w budżecie'],
     ['DYNAMIC','Dynamiczny','OPT',1,110,'TAK','Obsada zależna od wydarzeń i scenariusza']
   ]);
-  write(DB.SKILLS,[
-    ['OBSŁUGA','Obsługa podstawowa','Podstawowa praca operacyjna','TAK'],
-    ['LIDER','Lider zmiany','Może odpowiadać za zmianę','TAK'],
-    ['OTWARCIE','Otwarcie lokalu','Posiada uprawnienia do otwarcia','TAK'],
-    ['ZAMKNIĘCIE','Zamknięcie lokalu','Posiada uprawnienia do zamknięcia','TAK']
-  ]);
 }
 
 function dbLoadDemoLegacy_(){
@@ -160,6 +176,7 @@ function dbLoadDemoLegacy_(){
 
 function dbApplyValidations_(){
   const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP),n=sh.getMaxRows()-1;
+  sh.getRange(2,1,n,EMP_HEADERS.length).clearDataValidations();
   const yn=SpreadsheetApp.newDataValidation().requireValueInList(['TAK','NIE'],true).setAllowInvalid(false).build();
   [2,8,9,10,11,12,13,14,15,18,19,20,21,27,28,29].forEach(c=>sh.getRange(2,c,n,1).setDataValidation(yn));
   sh.getRange(2,6,n,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['KELNER','BARMAN','PIZZABAR','PREP','POMOC'],true).setAllowInvalid(false).build());

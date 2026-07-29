@@ -1,5 +1,5 @@
 const DB = Object.freeze({
-  VERSION:'2.2.1-DEMO-INSTALL-FIX',
+  VERSION:'2.3.0-REAL-WORLD',
   EMP:'BAZA_PRACOWNIKÓW',
   LOC:'LOKALIZACJE',
   SHIFT:'TYPY_ZMIAN',
@@ -12,20 +12,19 @@ const DB = Object.freeze({
 });
 
 const EMP_HEADERS = [
-  'PRACOWNIK_ID*','AKTYWNY*','IMIĘ_I_NAZWISKO*','EMAIL*','TELEFON',
-  'LOKALIZACJA_DOMYŚLNA*','DOZWOLONE_LOKALIZACJE*','PRZEŁOŻONY_EMAIL',
-  'TYP_UMOWY*','ETAT*','GODZINY_MIESIĘCZNE*','DATA_ZATRUDNIENIA_OD*','DATA_ZATRUDNIENIA_DO',
-  'TYLKO_RANO','TYLKO_POPOŁUDNIE','BEZ_WEEKENDÓW','DOSTĘPNY_STANDBY',
-  'MAX_DNI_Z_RZĘDU','MAX_GODZIN_TYGODNIOWO','MIN_ODPOCZYNEK_H',
-  'PREFEROWANE_DNI','NIEPREFEROWANE_DNI','PREFEROWANE_ZMIANY','PREFEROWANE_LOKALIZACJE',
-  'KOMPETENCJE*','MOŻE_OTWIERAĆ','MOŻE_ZAMYKAĆ','MOŻE_BYĆ_LIDEREM',
-  'PRIORYTET_PLANOWANIA','ROLA_APLIKACJI*','ID_KADROMIERZ','UWAGI','STATUS_REKORDU'
+  'PRACOWNIK_ID*','AKTYWNY*','IMIĘ_I_NAZWISKO*','EMAIL*','TELEFON','ROLA_GŁÓWNA*','LOKALIZACJA_BAZOWA*',
+  'KRUCZA_STANDARD','PAWILONY_STANDARD','KRUCZA_NADGODZINY','PAWILONY_NADGODZINY',
+  'HOST','ZAMKNIĘCIE_BARU','ZAMKNIĘCIE_SALI','MENADŻER_ZESPOŁU','ZARZĄDZA_ROLĄ','ZARZĄDZA_LOKALIZACJĄ',
+  'ROTACYJNY','SPLIT_SHIFT','EVENT','STANDBY','TYP_UMOWY*','ETAT*','GODZINY_MIESIĘCZNE*',
+  'DATA_ZATRUDNIENIA_OD*','DATA_ZATRUDNIENIA_DO','TYLKO_RANO','TYLKO_POPOŁUDNIE','BEZ_WEEKENDÓW',
+  'MAX_DNI_Z_RZĘDU','MAX_GODZIN_TYGODNIOWO','MIN_ODPOCZYNEK_H','PRIORYTET_PLANOWANIA','ROLA_APLIKACJI*',
+  'ID_KADROMIERZ','UWAGI','STATUS_REKORDU'
 ];
 
 function onOpen(){
   SpreadsheetApp.getUi().createMenu('GRAFIK PRO — BAZA')
     .addItem('Instaluj strukturę','dbInstall')
-    .addItem('Załaduj 60 pracowników DEMO','dbLoadDemo')
+    .addItem('Załaduj pełne dane DEMO','dbLoadDemo')
     .addSeparator()
     .addItem('Sprawdź bazę','dbValidate')
     .addItem('Oznacz zmiany do synchronizacji','dbTouchVersion')
@@ -52,7 +51,7 @@ function dbInstall(){
     sh.getRange(1,1,Math.max(2,sh.getMaxRows()),h.length).setVerticalAlignment('middle');
     sh.autoResizeColumns(1,h.length);
   });
-  dbStart_();dbSeedReferences_();dbApplyValidations_();
+  dbStart_();dbSeedReferences_();dbInstallRealWorldSettings_();dbApplyValidations_();
   PropertiesService.getDocumentProperties().setProperties({DB_VERSION:DB.VERSION,DB_UPDATED:new Date().toISOString()});
   SpreadsheetApp.getActive().toast('Baza GRAFIK PRO jest gotowa.','GRAFIK PRO',5);
 }
@@ -85,13 +84,13 @@ function dbSeedReferences_(){
     if(normalized.length)sh.getRange(2,1,normalized.length,width).setValues(normalized);
   };
   write(DB.LOC,[
-    ['LOC-CENTRUM','Centrum','Warszawa — Centrum','TAK','kierownik.centrum@demo.pl','#2563eb','A'],
-    ['LOC-OGRODY','Ogrody','Warszawa — Ogrody','TAK','kierownik.ogrody@demo.pl','#7c3aed','B']
+    ['KRUCZA','Krucza','Warszawa — Krucza','TAK','','#2563eb','A'],
+    ['PAWILONY','Pawilony','Warszawa — Pawilony','TAK','','#7c3aed','B']
   ]);
   write(DB.SHIFT,[
-    ['RANO','Zmiana poranna','06:00','14:00',8,'PODSTAWOWA','#fde68a','OBSŁUGA'],
-    ['POPOŁUDNIE','Zmiana popołudniowa','14:00','22:00',8,'PODSTAWOWA','#c4b5fd','OBSŁUGA'],
-    ['EXTRA','Zmiana dodatkowa','10:00','18:00',8,'DODATKOWA','#86efac','OBSŁUGA'],
+    ['RANO','Zmiana poranna','10:00','17:00',7,'PODSTAWOWA','#fde68a',''],
+    ['ŚRODEK','Zmiana środkowa','15:00','23:00',8,'PODSTAWOWA','#86efac',''],
+    ['WIECZÓR','Zmiana wieczorna','17:00','03:00',10,'PODSTAWOWA','#c4b5fd',''],
     ['STANDBY','Dyżur stand-by','06:00','22:00',2,'STANDBY','#fca5a5','']
   ]);
   write(DB.RULES,[
@@ -132,7 +131,7 @@ function dbSeedReferences_(){
   ]);
 }
 
-function dbLoadDemo(){
+function dbLoadDemoLegacy_(){
   dbInstall();
   const first=['Anna','Marta','Julia','Zofia','Aleksandra','Natalia','Katarzyna','Iga','Lena','Maja','Monika','Karolina','Ewa','Alicja','Weronika'];
   const last=['Nowak','Kowalska','Wiśniewska','Wójcik','Kamińska','Lewandowska','Zielińska','Szymańska','Woźniak','Dąbrowska','Kozłowska','Jankowska','Mazur','Krawczyk','Piotrowska'];
@@ -162,9 +161,10 @@ function dbLoadDemo(){
 function dbApplyValidations_(){
   const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP),n=sh.getMaxRows()-1;
   const yn=SpreadsheetApp.newDataValidation().requireValueInList(['TAK','NIE'],true).setAllowInvalid(false).build();
-  [2,14,15,16,17,26,27,28].forEach(c=>sh.getRange(2,c,n,1).setDataValidation(yn));
-  sh.getRange(2,9,n,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['UMOWA O PRACĘ','CZĘŚĆ ETATU','ZLECENIE','B2B','TYMCZASOWA'],true).build());
-  sh.getRange(2,30,n,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['PRACOWNIK','KIEROWNIK','KSIĘGOWOŚĆ','ADMIN'],true).build());
+  [2,8,9,10,11,12,13,14,15,18,19,20,21,27,28,29].forEach(c=>sh.getRange(2,c,n,1).setDataValidation(yn));
+  sh.getRange(2,6,n,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['KELNER','BARMAN','PIZZABAR','PREP','POMOC'],true).setAllowInvalid(false).build());
+  sh.getRange(2,22,n,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['UMOWA O PRACĘ','CZĘŚĆ ETATU','ZLECENIE','B2B','TYMCZASOWA'],true).build());
+  sh.getRange(2,34,n,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['PRACOWNIK','KIEROWNIK','KSIĘGOWOŚĆ','ADMIN'],true).build());
 }
 
 function dbFormatEmployeeSheet_(){
@@ -175,7 +175,7 @@ function dbFormatEmployeeSheet_(){
   const req=[1,2,3,4,6,7,9,10,11,12,25];req.forEach(c=>sh.getRange(1,c).setBackground('#1d4ed8'));
 }
 
-function dbValidate(){
+function dbValidateLegacy_(){
   const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP),data=sh.getDataRange().getValues(),headers=data.shift();
   const required=headers.map((h,i)=>String(h).endsWith('*')?i:-1).filter(i=>i>=0);
   const ids=new Set(),locs=new Set(SpreadsheetApp.getActive().getSheetByName(DB.LOC).getDataRange().getValues().slice(1).map(r=>r[0]));

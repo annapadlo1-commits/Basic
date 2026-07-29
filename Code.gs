@@ -1,5 +1,5 @@
 const DB = Object.freeze({
-  VERSION:'2.2.0-DEMO-SCENARIOS',
+  VERSION:'2.2.1-DEMO-INSTALL-FIX',
   EMP:'BAZA_PRACOWNIKÓW',
   LOC:'LOKALIZACJE',
   SHIFT:'TYPY_ZMIAN',
@@ -75,7 +75,15 @@ function dbStart_(){
 }
 
 function dbSeedReferences_(){
-  const write=(name,rows)=>{const sh=SpreadsheetApp.getActive().getSheetByName(name);if(sh.getLastRow()>1)return;sh.getRange(2,1,rows.length,rows[0].length).setValues(rows);};
+  const write=(name,rows)=>{
+    const sh=SpreadsheetApp.getActive().getSheetByName(name);if(sh.getLastRow()>1)return;
+    const width=sh.getLastColumn();
+    const normalized=rows.map((row,index)=>{
+      if(row.length>width)throw new Error(`${name}, wiersz DEMO ${index+2}: ${row.length} wartości dla ${width} kolumn.`);
+      return row.concat(Array(Math.max(0,width-row.length)).fill(''));
+    });
+    if(normalized.length)sh.getRange(2,1,normalized.length,width).setValues(normalized);
+  };
   write(DB.LOC,[
     ['LOC-CENTRUM','Centrum','Warszawa — Centrum','TAK','kierownik.centrum@demo.pl','#2563eb','A'],
     ['LOC-OGRODY','Ogrody','Warszawa — Ogrody','TAK','kierownik.ogrody@demo.pl','#7c3aed','B']
@@ -99,7 +107,7 @@ function dbSeedReferences_(){
     ['WYSOKI_RUCH','Wysoki ruch',1.25,1.15,'OPTIMAL','DOZWOLONE',8,0,'OPCJONALNIE','TAK','Zwiększone zapotrzebowanie i budżet'],
     ['REDUKCJA_KOSZTÓW','Redukcja kosztów',1,0.85,'MINIMUM','BLOKOWANE',0,0,'NIE','TAK','Minimalna bezpieczna obsada i ścisły budżet'],
     ['BRAKI_KADROWE','Braki kadrowe',1,1,'MINIMUM','DOZWOLONE',8,15,'SUGEROWANE','TAK','Symulacja ograniczonej dostępności zespołu'],
-    ['SEZONOWY','Sezonowy',1.4,1.25,'OPTIMAL','DOZWOLONE',12,0,'TAK','Sezonowy wzrost ruchu']
+    ['SEZONOWY','Sezonowy',1.4,1.25,'OPTIMAL','DOZWOLONE',12,0,'TAK','TAK','Sezonowy wzrost ruchu']
   ]);
   write(DB.MODES,[
     ['ZRÓWNOWAŻONY','Zrównoważony',20,20,25,30,5,'TAK','Równowaga kosztu, preferencji i sprawiedliwości'],

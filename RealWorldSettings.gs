@@ -50,9 +50,13 @@ function dbLoadDemo(){
     ]);
   }});
   const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP);
-  const body=sh.getRange(2,1,Math.max(1,sh.getMaxRows()-1),EMP_HEADERS.length);
+  const body=sh.getRange(2,1,Math.max(1,sh.getMaxRows()-1),sh.getMaxColumns());
   body.clearDataValidations();
-  if(sh.getLastRow()>1)sh.getRange(2,1,sh.getLastRow()-1,EMP_HEADERS.length).clearContent();
+  body.clearContent();
+  if(sh.getMaxColumns()>EMP_HEADERS.length){
+    sh.getRange(1,EMP_HEADERS.length+1,sh.getMaxRows(),sh.getMaxColumns()-EMP_HEADERS.length)
+      .clearContent().clearDataValidations();
+  }
   sh.getRange(2,1,rows.length,EMP_HEADERS.length).setValues(rows);
   dbApplyValidations_();db23ApplyCheckboxes_();dbValidate23_();dbTouchVersion();
   return {ok:true,employees:rows.length};

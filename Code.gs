@@ -1,5 +1,5 @@
 const DB = Object.freeze({
-  VERSION:'2.3.1-REAL-WORLD',
+  VERSION:'2.3.2-REAL-WORLD',
   EMP:'BAZA_PRACOWNIKÓW',
   LOC:'LOKALIZACJE',
   SHIFT:'TYPY_ZMIAN',
@@ -46,6 +46,10 @@ function dbInstall(){
   Object.keys(defs).forEach(name=>{
     let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
     const h=defs[name];if(sh.getMaxColumns()<h.length)sh.insertColumnsAfter(sh.getMaxColumns(),h.length-sh.getMaxColumns());
+    if(sh.getMaxColumns()>h.length){
+      sh.getRange(1,h.length+1,sh.getMaxRows(),sh.getMaxColumns()-h.length)
+        .clearContent().clearDataValidations();
+    }
     sh.getRange(1,1,1,h.length).setValues([h]).setBackground('#172554').setFontColor('#fff').setFontWeight('bold').setWrap(true);
     sh.setFrozenRows(1);sh.setFrozenColumns(name===DB.EMP?3:1);sh.setHiddenGridlines(true);
     sh.getRange(1,1,Math.max(2,sh.getMaxRows()),h.length).setVerticalAlignment('middle');

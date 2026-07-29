@@ -77,7 +77,16 @@ function db23Staffing_(){
   ['ND-CZW','PT-SOB'].forEach(g=>{a('PAWILONY',g,'RANO','BARMAN',1,'');a('PAWILONY',g,'RANO','PIZZABAR',1,'');a('PAWILONY',g,'WIECZÓR','BARMAN',2,'ZAMKNIĘCIE_BARU');a('PAWILONY',g,'WIECZÓR','PIZZABAR',2,'');});return r;
 }
 function db23WriteIfEmpty_(name,rows){const sh=SpreadsheetApp.getActive().getSheetByName(name);if(sh.getLastRow()===1&&rows.length)sh.getRange(2,1,rows.length,rows[0].length).setValues(rows);}
-function db23ApplyCheckboxes_(){const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP),n=Math.max(1,sh.getMaxRows()-1);[2,8,9,10,11,12,13,14,15,18,19,20,21,27,28,29].forEach(c=>sh.getRange(2,c,n,1).insertCheckboxes('TAK','NIE'));}
+function db23ApplyCheckboxes_(){
+  const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP);
+  const n=Math.max(0,sh.getLastRow()-1);
+  const checkboxColumns=[2,8,9,10,11,12,13,14,15,18,19,20,21,27,28,29];
+  checkboxColumns.forEach(c=>{
+    if(n)sh.getRange(2,c,n,1).insertCheckboxes('TAK','NIE');
+    const remaining=sh.getMaxRows()-n-1;
+    if(remaining>0)sh.getRange(n+2,c,remaining,1).clearContent().clearDataValidations();
+  });
+}
 function dbValidate23_(){
   const sh=SpreadsheetApp.getActive().getSheetByName(DB.EMP),data=sh.getDataRange().getValues(),h=data.shift(),idx=Object.fromEntries(h.map((x,i)=>[x,i])),errors=[],names=new Set(),ids=new Set(),managerCounts={};
   data.filter(r=>r.some(Boolean)).forEach((r,i)=>{
